@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ad Auction Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    /* ── Reset & Variables ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0f0f1a;
+      --bg-panel:    #12121e;
+      --bg-card:     #191928;
+      --bg-input:    #0c0c16;
+      --accent:      #00ff88;
+      --accent-lo:   rgba(0,255,136,.10);
+      --accent-md:   rgba(0,255,136,.30);
+      --danger:      #ff4466;
+      --warn:        #ffaa00;
+      --info:        #4488ff;
+      --text:        #dde1f0;
+      --text-dim:    #555570;
+      --border:      #222236;
+      --radius:      6px;
+      --font:        'JetBrains Mono', monospace;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--text);
+                 font-family: var(--font); font-size: 12px; line-height: 1.5;
+                 overflow: hidden; }
+
+    /* ── Top-level Grid ────────────────────────────────────────────────────── */
+    body { display: grid; grid-template-rows: 48px 1fr; }
+
+    /* ── Header ────────────────────────────────────────────────────────────── */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 20px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-title {
+      font-size: 15px; font-weight: 700; letter-spacing: 5px;
+      color: var(--accent); text-shadow: 0 0 24px rgba(0,255,136,.5);
+    }
+
+    .header-right { display: flex; align-items: center; gap: 18px;
+                    color: var(--text-dim); font-size: 11px; }
+
+    #clock { letter-spacing: 2px; color: var(--text); }
+
+    .conn-pill { display: flex; align-items: center; gap: 6px; }
+
+    .conn-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--text-dim);
+      transition: background .3s, box-shadow .3s;
+    }
+    .conn-dot.online  { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .conn-dot.offline { background: var(--danger);  box-shadow: 0 0 8px var(--danger); }
+
+    /* ── Three-panel main ──────────────────────────────────────────────────── */
+    main { display: grid; grid-template-columns: 30% 40% 30%; overflow: hidden; }
+
+    .panel {
+      overflow-y: auto; padding: 14px 14px 20px;
+      border-right: 1px solid var(--border);
+    }
+    .panel:last-child { border-right: none; }
+    .panel::-webkit-scrollbar { width: 3px; }
+    .panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ── Section chrome ────────────────────────────────────────────────────── */
+    .section { margin-bottom: 22px; }
+
+    .section-hd {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px; padding-bottom: 7px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title {
+      font-size: 10px; font-weight: 700; letter-spacing: 2.5px;
+      color: var(--accent); text-transform: uppercase;
+    }
+
+    /* ── Tables ────────────────────────────────────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+
+    th { font-size: 9px; font-weight: 500; letter-spacing: 1px; text-transform: uppercase;
+         color: var(--text-dim); padding: 3px 6px; border-bottom: 1px solid var(--border); }
+    td { padding: 6px 6px; border-bottom: 1px solid rgba(34,34,54,.6); vertical-align: middle; }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--accent-lo); }
+
+    /* ── Forms ─────────────────────────────────────────────────────────────── */
+    .form-row { display: flex; gap: 5px; margin-top: 8px; }
+
+    input, select {
+      flex: 1; min-width: 0;
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text);
+      font-family: var(--font); font-size: 11px; padding: 6px 8px;
+      outline: none; transition: border-color .2s, box-shadow .2s;
+    }
+    input:focus, select:focus {
+      border-color: var(--accent-md); box-shadow: 0 0 0 2px var(--accent-lo);
+    }
+    input::placeholder { color: var(--text-dim); }
+    select option { background: var(--bg-card); }
+
+    /* ── Buttons ───────────────────────────────────────────────────────────── */
+    button {
+      font-family: var(--font); font-size: 11px; font-weight: 600;
+      padding: 6px 12px; border: 1px solid transparent;
+      border-radius: var(--radius); cursor: pointer; transition: all .18s;
+      white-space: nowrap; letter-spacing: .5px;
+    }
+
+    .btn-primary { background: var(--accent); color: #000; border-color: var(--accent); }
+    .btn-primary:hover { box-shadow: 0 0 14px rgba(0,255,136,.5); filter: brightness(1.1); }
+    .btn-primary:disabled { opacity: .35; cursor: not-allowed; box-shadow: none; filter: none; }
+
+    .btn-ghost { background: transparent; border-color: var(--border); color: var(--text-dim); }
+    .btn-ghost:hover { border-color: var(--accent-md); color: var(--accent); }
+
+    .btn-danger { background: transparent; color: var(--danger);
+                  padding: 3px 7px; font-size: 10px; border: none; }
+    .btn-danger:hover { background: rgba(255,68,102,.15); border-radius: var(--radius); }
+
+    .btn-sm { background: transparent; border-color: var(--accent-md); color: var(--accent);
+              padding: 3px 8px; font-size: 10px; }
+    .btn-sm:hover { background: var(--accent-lo); }
+
+    .btn-warn { background: transparent; border-color: var(--warn); color: var(--warn);
+                padding: 3px 8px; font-size: 10px; }
+    .btn-warn:hover { background: rgba(255,170,0,.12); }
+
+    /* ── RUN AUCTION ───────────────────────────────────────────────────────── */
+    #run-auction-btn {
+      width: 100%; padding: 13px; margin-top: 10px;
+      font-size: 13px; font-weight: 700; letter-spacing: 4px;
+      background: transparent; border: 2px solid var(--accent); color: var(--accent);
+      border-radius: var(--radius); cursor: pointer;
+      animation: glow-pulse 2.5s ease-in-out infinite;
+      transition: background .2s;
+    }
+    #run-auction-btn:hover { background: var(--accent-lo); }
+    #run-auction-btn:disabled {
+      animation: none; border-color: var(--text-dim);
+      color: var(--text-dim); cursor: not-allowed;
+    }
+
+    @keyframes glow-pulse {
+      0%,100% { box-shadow: 0 0 8px rgba(0,255,136,.25), inset 0 0 8px rgba(0,255,136,.04); }
+      50%     { box-shadow: 0 0 28px rgba(0,255,136,.55), 0 0 56px rgba(0,255,136,.18),
+                            inset 0 0 14px rgba(0,255,136,.10); }
+    }
+
+    /* ── Badges ────────────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-block; font-size: 9px; font-weight: 700;
+      letter-spacing: 1px; padding: 2px 6px; border-radius: 3px; text-transform: uppercase;
+    }
+    .badge-pending { background: rgba(85,85,112,.25); color: var(--text-dim); }
+    .badge-active  { background: rgba(0,255,136,.12); color: var(--accent);
+                     border: 1px solid var(--accent-md); }
+    .badge-closed  { background: rgba(255,68,102,.12); color: var(--danger); }
+
+    /* ── Auction list items ────────────────────────────────────────────────── */
+    .auction-item {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 8px 10px; margin-bottom: 6px;
+    }
+    .auction-item-hd { display: flex; justify-content: space-between;
+                        align-items: center; margin-bottom: 3px; }
+    .auction-slot-name { font-weight: 600; font-size: 11px; }
+    .auction-meta { color: var(--text-dim); font-size: 10px; display: flex; gap: 12px; }
+    .auction-actions { display: flex; gap: 4px; margin-top: 5px; }
+
+    /* ── Bid board ─────────────────────────────────────────────────────────── */
+    .bid-board-hd {
+      display: flex; justify-content: space-between; align-items: center;
+      margin: 10px 0 6px;
+    }
+    .refresh-ts { font-size: 10px; color: var(--text-dim); }
+
+    .pos-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; border-radius: 50%; font-size: 9px; font-weight: 700;
+      background: var(--bg); border: 1px solid var(--border); color: var(--text-dim);
+    }
+    .pos-badge.p1 { border-color: var(--accent); color: var(--accent);
+                    box-shadow: 0 0 6px var(--accent-md); }
+
+    /* ── Result card ───────────────────────────────────────────────────────── */
+    .result-card {
+      margin-top: 14px; background: var(--bg-card);
+      border: 1px solid var(--accent-md); border-radius: var(--radius);
+      padding: 16px; animation: reveal .5s cubic-bezier(.16,1,.3,1);
+    }
+    .result-card.hidden { display: none; }
+
+    @keyframes reveal {
+      from { opacity: 0; transform: translateY(14px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0)    scale(1);   }
+    }
+
+    .result-winner {
+      font-size: 17px; font-weight: 700; color: var(--accent);
+      text-shadow: 0 0 14px rgba(0,255,136,.5); margin-bottom: 2px;
+    }
+    .result-subtitle { font-size: 10px; color: var(--text-dim); margin-bottom: 12px; }
+
+    .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 12px; }
+
+    .stat-box {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 8px; text-align: center;
+    }
+    .stat-val   { font-size: 15px; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 9px; color: var(--text-dim); letter-spacing: 1px;
+                  text-transform: uppercase; margin-top: 2px; }
+
+    .result-card table th { font-size: 9px; }
+    .result-card table td { font-size: 11px; }
+    .winner-row td { color: var(--accent); font-weight: 600; }
+
+    /* ── Charts ────────────────────────────────────────────────────────────── */
+    .chart-wrap {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px; margin-bottom: 10px;
+    }
+    .chart-title {
+      font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--text-dim); margin-bottom: 10px;
+    }
+    .chart-wrap canvas { max-height: 155px; }
+
+    /* ── Summary stats strip ───────────────────────────────────────────────── */
+    .summary-strip {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 6px; margin-bottom: 10px;
+    }
+    .summary-cell {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 8px; text-align: center;
+    }
+    .summary-val   { font-size: 13px; font-weight: 700; color: var(--accent); }
+    .summary-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase;
+                     letter-spacing: 1px; margin-top: 1px; }
+
+    /* ── Spinner ───────────────────────────────────────────────────────────── */
+    .spinner {
+      display: inline-block; width: 11px; height: 11px;
+      border: 2px solid var(--border); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin .65s linear infinite; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Auto-Simulate button ──────────────────────────────────────────────── */
+    :root { --sim: #bb44ff; --sim-lo: rgba(187,68,255,.12); --sim-md: rgba(187,68,255,.35); }
+
+    #auto-sim-btn {
+      width: 100%; padding: 10px; margin-top: 6px;
+      font-size: 11px; font-weight: 700; letter-spacing: 2px;
+      background: var(--sim-lo); border: 1px solid var(--sim-md); color: var(--sim);
+      border-radius: var(--radius); cursor: pointer;
+      transition: background .2s, box-shadow .2s;
+    }
+    #auto-sim-btn:hover  { background: rgba(187,68,255,.20); box-shadow: 0 0 14px rgba(187,68,255,.35); }
+    #auto-sim-btn:disabled { opacity: .35; cursor: not-allowed; box-shadow: none; }
+
+    /* ── Simulation progress overlay ───────────────────────────────────────── */
+    #sim-overlay {
+      margin-top: 12px; padding: 14px 16px;
+      background: var(--bg-card); border: 1px solid var(--sim-md);
+      border-radius: var(--radius); animation: reveal .3s ease;
+    }
+    #sim-overlay.hidden { display: none; }
+
+    .sim-overlay-title {
+      font-size: 10px; font-weight: 700; letter-spacing: 2px;
+      color: var(--sim); text-transform: uppercase; margin-bottom: 10px;
+    }
+
+    .sim-step {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; padding: 4px 0; transition: color .2s;
+    }
+    .sim-step.pending { color: var(--text-dim); }
+    .sim-step.active  { color: var(--sim); }
+    .sim-step.done    { color: var(--accent); }
+
+    .sim-icon { font-size: 10px; width: 14px; text-align: center; flex-shrink: 0; }
+    .sim-step.active .sim-icon { animation: sim-pulse .8s ease-in-out infinite; }
+
+    @keyframes sim-pulse {
+      0%,100% { opacity: 1; }
+      50%     { opacity: .3; }
+    }
+
+    /* ── Inline form validation ────────────────────────────────────────────── */
+    .field-error { color: var(--danger); font-size: 10px; min-height: 14px;
+                   padding-top: 2px; }
+    input.input-error { border-color: var(--danger) !important;
+                        box-shadow: 0 0 0 2px rgba(255,68,102,.15) !important; }
+
+    /* ── Modal ─────────────────────────────────────────────────────────────── */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.78);
+      z-index: 1000; display: flex; align-items: center; justify-content: center;
+    }
+    .modal-backdrop.hidden { display: none; }
+
+    .modal-box {
+      background: var(--bg-panel); border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: min(580px, 90vw); max-height: 80vh;
+      display: flex; flex-direction: column;
+      animation: reveal .25s cubic-bezier(.16,1,.3,1);
+    }
+
+    .modal-hd {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+
+    #modal-body { overflow-y: auto; padding: 16px; flex: 1; }
+    #modal-body::-webkit-scrollbar { width: 3px; }
+    #modal-body::-webkit-scrollbar-thumb { background: var(--border); }
+
+    /* ── Mobile responsive ─────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      html, body { overflow: auto; }
+      body  { grid-template-rows: 48px auto; }
+      main  { grid-template-columns: 1fr; overflow: visible; }
+      .panel { overflow-y: visible; border-right: none;
+               border-bottom: 1px solid var(--border); }
+      .panel:last-child { border-bottom: none; }
+      .chart-wrap canvas { max-height: 120px; }
+      .stat-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
+    /* ── Utilities ─────────────────────────────────────────────────────────── */
+    .empty { color: var(--text-dim); text-align: center; padding: 14px 0; }
+    .green { color: var(--accent); font-weight: 600; }
+    .dim   { color: var(--text-dim); }
+    .mt10  { margin-top: 10px; }
+    .w100  { width: 100%; }
+
+    /* ── Toast ─────────────────────────────────────────────────────────────── */
+    #toasts {
+      position: fixed; bottom: 18px; right: 18px;
+      z-index: 999; display: flex; flex-direction: column; gap: 6px;
+    }
+    .toast {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 9px 14px; font-size: 11px;
+      max-width: 270px; animation: toast-in .25s ease;
+      box-shadow: 0 4px 22px rgba(0,0,0,.5);
+    }
+    .toast.success { border-color: var(--accent-md); color: var(--accent); }
+    .toast.error   { border-color: rgba(255,68,102,.4); color: var(--danger); }
+    .toast.info    { border-color: rgba(68,136,255,.4); color: var(--info); }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(16px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ HEADER ══════════ -->
+<header>
+  <div class="header-title">AD AUCTION SIMULATOR</div>
+  <div class="header-right">
+    <span id="clock">--:--:--</span>
+    <div class="conn-pill">
+      <div class="conn-dot" id="conn-dot"></div>
+      <span id="conn-label">connecting…</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ══════════ LEFT PANEL — Controls ══════════ -->
+  <div class="panel">
+
+    <!-- Bidders -->
+    <div class="section">
+      <div class="section-hd">
+        <span class="section-title">Bidders</span>
+        <span class="spinner" id="sp-bidders" style="display:none"></span>
+      </div>
+      <div id="bidders-wrap"><div class="empty">Loading…</div></div>
+      <form id="add-bidder-form">
+        <div class="form-row">
+          <input id="b-name"   type="text"   placeholder="Name"    required />
+          <input id="b-budget" type="number" placeholder="Budget $" min="0.01" step="0.01"
+                 style="max-width:80px" required />
+          <button type="submit" class="btn-primary">Add</button>
+        </div>
+        <div style="display:flex;gap:5px">
+          <div class="field-error" id="b-name-err"   style="flex:1"></div>
+          <div class="field-error" id="b-budget-err" style="max-width:80px"></div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Auction Slots -->
+    <div class="section">
+      <div class="section-hd">
+        <span class="section-title">Auction Slots</span>
+        <span class="spinner" id="sp-auctions" style="display:none"></span>
+      </div>
+      <div id="auctions-wrap"><div class="empty">Loading…</div></div>
+      <form id="create-auction-form" class="mt10">
+        <div class="form-row">
+          <input id="a-slot"    type="text"   placeholder="Slot name"  required />
+          <input id="a-reserve" type="number" placeholder="Reserve $" min="0" step="0.01"
+                 style="max-width:88px" required />
+          <button type="submit" class="btn-primary">Create</button>
+        </div>
+        <div style="display:flex;gap:5px">
+          <div class="field-error" id="a-slot-err"    style="flex:1"></div>
+          <div class="field-error" id="a-reserve-err" style="max-width:88px"></div>
+        </div>
+      </form>
+    </div>
+
+  </div>
+
+  <!-- ══════════ CENTER PANEL — Live Auction ══════════ -->
+  <div class="panel">
+    <div class="section">
+      <div class="section-hd">
+        <span class="section-title">Live Auction</span>
+      </div>
+
+      <!-- Auction selector -->
+      <select id="auction-select" class="w100">
+        <option value="">— select an active auction —</option>
+      </select>
+
+      <!-- Bid form -->
+      <div class="form-row mt10">
+        <select id="bidder-select">
+          <option value="">— bidder —</option>
+        </select>
+        <input id="bid-amount" type="number" placeholder="Amount $"
+               min="0.01" step="0.01" style="max-width:100px" />
+        <button id="place-bid-btn" class="btn-primary" disabled>Place Bid</button>
+      </div>
+      <div class="field-error" id="bid-amount-err"></div>
+
+      <!-- Live bid board -->
+      <div class="bid-board-hd">
+        <span class="section-title" style="font-size:9px">Live Bids</span>
+        <span class="refresh-ts" id="last-refreshed">—</span>
+      </div>
+      <div id="bid-board"><div class="empty">Select an active auction</div></div>
+
+      <!-- Run button -->
+      <button id="run-auction-btn" disabled>RUN AUCTION</button>
+
+      <!-- Auto-Simulate button -->
+      <button id="auto-sim-btn">⚡ AUTO-SIMULATE</button>
+
+      <!-- Simulation progress overlay -->
+      <div id="sim-overlay" class="hidden">
+        <div class="sim-overlay-title">⚡ Simulating auction…</div>
+        <div id="sim-steps"></div>
+      </div>
+
+      <!-- Result reveal -->
+      <div id="auction-result" class="result-card hidden"></div>
+    </div>
+  </div>
+
+  <!-- ══════════ RIGHT PANEL — Analytics ══════════ -->
+  <div class="panel">
+    <div class="section">
+      <div class="section-hd">
+        <span class="section-title">Analytics</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn-ghost" id="export-csv-btn" title="Download CSV">⬇ CSV</button>
+          <button class="btn-ghost" id="refresh-analytics-btn">↺ Refresh</button>
+        </div>
+      </div>
+
+      <!-- Summary strip -->
+      <div class="summary-strip" id="summary-strip">
+        <div class="summary-cell"><div class="summary-val">—</div><div class="summary-label">Auctions</div></div>
+        <div class="summary-cell"><div class="summary-val">—</div><div class="summary-label">Total Bids</div></div>
+        <div class="summary-cell"><div class="summary-val">—</div><div class="summary-label">Avg Clearing</div></div>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">CPM Trend — 30 days</div>
+        <canvas id="chart-cpm"></canvas>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">Win Rates</div>
+        <canvas id="chart-wins"></canvas>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">Bid Distribution</div>
+        <canvas id="chart-dist"></canvas>
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-title">Recent Results</div>
+        <div id="recent-results"><div class="empty">No data</div></div>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<!-- ══════════ BID HISTORY MODAL ══════════ -->
+<div id="modal-backdrop" class="modal-backdrop hidden">
+  <div class="modal-box">
+    <div class="modal-hd">
+      <span class="section-title" id="modal-title">Bid History</span>
+      <button class="btn-ghost" onclick="closeModal()" style="padding:3px 8px">✕</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script src="js/api.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/realtime.js"></script>
+<script src="js/app.js"></script>
+<script>
+// Nothing inline — all logic lives in js/api.js, js/charts.js, js/app.js
+</script>
+</body>
+</html>
